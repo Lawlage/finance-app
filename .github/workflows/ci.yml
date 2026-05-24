@@ -91,9 +91,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox
       - run: docker compose up -d --build
-      - name: Install dependencies inside container
+      - name: Fix permissions and install dependencies
         run: |
-          docker compose exec -T -u root app chown -R www:www /var/www/html/vendor /var/www/html/node_modules
+          docker compose exec -T -u root app chown -R www:www /var/www/html
           docker compose exec -T app composer install --no-interaction --prefer-dist
           docker compose exec -T app npm ci
       - name: Configure application
