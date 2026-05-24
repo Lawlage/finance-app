@@ -93,7 +93,7 @@ jobs:
       - run: docker compose up -d --build
       - name: Fix permissions and install dependencies
         run: |
-          docker compose exec -T -u root app chown -R www:www /var/www/html
+          docker compose exec -T -u root app chown -R www:www /var/www/html/vendor /var/www/html/node_modules /var/www/html/storage /var/www/html/bootstrap/cache
           docker compose exec -T app composer install --no-interaction --prefer-dist
           docker compose exec -T app npm ci
       - name: Configure application
