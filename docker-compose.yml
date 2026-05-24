@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      target: dev
+    volumes:
+      - .:/var/www/html
+      - vendor-data:/var/www/html/vendor
+      - node-modules-data:/var/www/html/node_modules
+    networks:
+      - finance-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      AI_GATEWAY_URL: ${AI_GATEWAY_URL:-http://192.168.1.100:8000}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+    ports:
+      - "5173:5173"
+
+  nginx:
+    build:
+      context: ./docker/nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+    networks:
+      - finance-net
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: finance
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_USER: ${DB_USERNAME:-finance_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - finance-net
+    # MySQL is NOT exposed to the host — internal only
+
+volumes:
+  mysql-data:
+  vendor-data:
+  node-modules-data:
+
+networks:
+  finance-net:
+    driver: bridge
