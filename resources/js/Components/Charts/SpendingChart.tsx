@@ -29,8 +29,8 @@ export default function SpendingChart({ data }: SpendingChartProps) {
                 <XAxis dataKey="category" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip
-                    formatter={(value: number) => [
-                        `$${value.toFixed(2)}`,
+                    formatter={(value) => [
+                        `$${Number(value).toFixed(2)}`,
                         'Total',
                     ]}
                 />

@@ -10,6 +10,7 @@ const mockAnalysis = {
     llm_response: 'You spent too much on coffee.',
     model: 'llama-3.3-70b',
     created_at: '2026-02-01',
+    updated_at: '2026-02-01',
 }
 
 describe('RecommendationCard', () => {
