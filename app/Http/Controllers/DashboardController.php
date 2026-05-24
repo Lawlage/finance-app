@@ -18,8 +18,9 @@ class DashboardController extends Controller
         $from = $request->query('from');
         $to = $request->query('to');
 
+        /** @var string|null $latestDate */
         $latestDate = Transaction::max('date');
-        $referenceDate = $latestDate ? Carbon::parse($latestDate) : Carbon::now();
+        $referenceDate = $latestDate !== null ? Carbon::parse($latestDate) : Carbon::now();
 
         [$startDate, $endDate, $periodLabel] = $this->resolveDateRange(
             (string) $range,
