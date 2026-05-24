@@ -1,0 +1,158 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderComponent, screen, fireEvent } from '@/test/utils'
+import Upload from './Upload'
+
+const mockPost = vi.fn()
+const mockSetData = vi.fn()
+let mockFormState = {
+    data: { statement: null as File | null, account: '' },
+    setData: mockSetData,
+    post: mockPost,
+    processing: false,
+    errors: {} as Record<string, string>,
+    recentlySuccessful: false,
+}
+
+vi.mock('@inertiajs/react', () => ({
+    Link: ({
+        children,
+        ...props
+    }: {
+        children: React.ReactNode
+        [key: string]: unknown
+    }) => <a {...props}>{children}</a>,
+    Head: ({ title }: { title: string }) => <title>{title}</title>,
+    usePage: () => ({ url: '/upload' }),
+    useForm: () => mockFormState,
+}))
+
+beforeEach(() => {
+    mockFormState = {
+        data: { statement: null, account: '' },
+        setData: mockSetData,
+        post: mockPost,
+        processing: false,
+        errors: {},
+        recentlySuccessful: false,
+    }
+    mockPost.mockClear()
+    mockSetData.mockClear()
+})
+
+describe('Upload', () => {
+    it('renders the page heading', () => {
+        renderComponent(<Upload />)
+
+        expect(
+            screen.getByRole('heading', { name: 'Upload Bank Statement' }),
+        ).toBeInTheDocument()
+    })
+
+    it('renders the account name input', () => {
+        renderComponent(<Upload />)
+
+        expect(screen.getByLabelText('Account Name')).toBeInTheDocument()
+    })
+
+    it('renders the file drop zone', () => {
+        renderComponent(<Upload />)
+
+        expect(
+            screen.getByText(
+                'Drag and drop a bank statement, or click to browse',
+            ),
+        ).toBeInTheDocument()
+    })
+
+    it('renders the upload button as disabled when no file is selected', () => {
+        renderComponent(<Upload />)
+
+        const button = screen.getByRole('button', {
+            name: 'Upload & Process',
+        })
+        expect(button).toBeDisabled()
+    })
+
+    it('calls setData when account name changes', () => {
+        renderComponent(<Upload />)
+
+        fireEvent.change(screen.getByLabelText('Account Name'), {
+            target: { value: 'Westpac Everyday' },
+        })
+
+        expect(mockSetData).toHaveBeenCalledWith('account', 'Westpac Everyday')
+    })
+
+    it('renders the statement file label', () => {
+        renderComponent(<Upload />)
+
+        expect(screen.getByText('Statement File')).toBeInTheDocument()
+    })
+
+    it('calls post on form submission when file is selected', () => {
+        const file = new File(['data'], 'test.csv', { type: 'text/csv' })
+        mockFormState.data.statement = file
+
+        renderComponent(<Upload />)
+
+        fireEvent.submit(
+            screen
+                .getByRole('button', { name: 'Upload & Process' })
+                .closest('form') as HTMLElement,
+        )
+
+        expect(mockPost).toHaveBeenCalledWith('/upload', {
+            forceFormData: true,
+        })
+    })
+
+    it('does not call post when no file is selected', () => {
+        renderComponent(<Upload />)
+
+        fireEvent.submit(
+            screen
+                .getByRole('button', { name: 'Upload & Process' })
+                .closest('form') as HTMLElement,
+        )
+
+        expect(mockPost).not.toHaveBeenCalled()
+    })
+
+    it('shows success message when recently successful', () => {
+        mockFormState.recentlySuccessful = true
+
+        renderComponent(<Upload />)
+
+        expect(
+            screen.getByText(/Statement uploaded successfully/),
+        ).toBeInTheDocument()
+    })
+
+    it('shows error messages for account field', () => {
+        mockFormState.errors = { account: 'The account field is required.' }
+
+        renderComponent(<Upload />)
+
+        expect(
+            screen.getByText('The account field is required.'),
+        ).toBeInTheDocument()
+    })
+
+    it('shows error messages for statement field', () => {
+        mockFormState.errors = { statement: 'Please select a file.' }
+
+        renderComponent(<Upload />)
+
+        expect(screen.getByText('Please select a file.')).toBeInTheDocument()
+    })
+
+    it('shows Uploading text when processing', () => {
+        mockFormState.processing = true
+
+        renderComponent(<Upload />)
+
+        expect(
+            screen.getByRole('button', { name: 'Uploading...' }),
+        ).toBeInTheDocument()
+    })
+})
