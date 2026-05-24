@@ -90,18 +90,17 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox
+      - name: Configure environment
+        run: cp .env.example .env
       - run: docker compose up -d --build
       - name: Fix permissions and install dependencies
         run: |
           docker compose exec -T -u root app chown -R www:www /var/www/html/vendor /var/www/html/node_modules /var/www/html/storage /var/www/html/bootstrap/cache
           docker compose exec -T app composer install --no-interaction --prefer-dist
           docker compose exec -T app npm ci
-      - name: Configure application
+      - name: Generate app key and migrate
         run: |
-          docker compose exec -T app cp .env.example .env
           docker compose exec -T app php artisan key:generate
-      - name: Wait for MySQL and migrate
-        run: |
           timeout 60 sh -c 'until docker compose exec -T app php artisan migrate --force 2>/dev/null; do sleep 2; done'
       - run: docker compose exec -T app npm run build
       - name: Wait for app
