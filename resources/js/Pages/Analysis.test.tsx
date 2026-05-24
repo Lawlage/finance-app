@@ -74,7 +74,8 @@ describe('Analysis', () => {
         renderComponent(<Analysis analyses={mockAnalyses} />)
 
         expect(screen.getByText('Analysis History')).toBeInTheDocument()
-        expect(screen.getByText('2026-01-01 to 2026-01-31')).toBeInTheDocument()
+        const link = screen.getByRole('link', { name: /Jan 2026/ })
+        expect(link).toBeInTheDocument()
     })
 
     it('calls setData when date inputs change', () => {

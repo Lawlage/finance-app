@@ -31,8 +31,7 @@ describe('RecommendationCard', () => {
     it('displays the analysis period', () => {
         renderComponent(<RecommendationCard analysis={mockAnalysis} />)
 
-        expect(
-            screen.getByText('Period: 2026-01-01 to 2026-01-31'),
-        ).toBeInTheDocument()
+        expect(screen.getByText(/Period:/)).toBeInTheDocument()
+        expect(screen.getByText(/Jan 2026/)).toBeInTheDocument()
     })
 })

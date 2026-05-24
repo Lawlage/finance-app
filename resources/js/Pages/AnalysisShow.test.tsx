@@ -41,8 +41,7 @@ describe('AnalysisShow', () => {
             screen.getByText('You should reduce coffee spending.'),
         ).toBeInTheDocument()
         expect(screen.getByText('Model: llama-3.3-70b')).toBeInTheDocument()
-        expect(
-            screen.getByText('Period: 2026-01-01 to 2026-01-31'),
-        ).toBeInTheDocument()
+        expect(screen.getByText(/Period:/)).toBeInTheDocument()
+        expect(screen.getByText(/Jan 2026/)).toBeInTheDocument()
     })
 })

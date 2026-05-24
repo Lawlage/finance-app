@@ -60,7 +60,7 @@ describe('TransactionTable', () => {
     it('renders transaction data', () => {
         renderComponent(<TransactionTable transactions={mockTransactions} />)
 
-        expect(screen.getByText('2026-01-15')).toBeInTheDocument()
+        expect(screen.getByText(/15 Jan 2026/)).toBeInTheDocument()
         expect(screen.getByText('Countdown Supermarket')).toBeInTheDocument()
         expect(screen.getByText('Groceries')).toBeInTheDocument()
     })

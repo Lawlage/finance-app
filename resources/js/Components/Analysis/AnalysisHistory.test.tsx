@@ -46,15 +46,17 @@ describe('AnalysisHistory', () => {
     it('renders a list of analysis links', () => {
         renderComponent(<AnalysisHistory analyses={mockAnalyses} />)
 
-        expect(screen.getByText('2026-01-01 to 2026-01-31')).toBeInTheDocument()
-        expect(screen.getByText('2026-02-01 to 2026-02-28')).toBeInTheDocument()
+        const links = screen.getAllByRole('link')
+        expect(links).toHaveLength(2)
+        expect(links[0]).toHaveTextContent(/Jan 2026/)
+        expect(links[1]).toHaveTextContent(/Feb 2026/)
     })
 
     it('displays the model name for each analysis', () => {
         renderComponent(<AnalysisHistory analyses={mockAnalyses} />)
 
-        expect(screen.getByText('llama-3.3-70b')).toBeInTheDocument()
-        expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+        expect(screen.getByText(/llama-3.3-70b/)).toBeInTheDocument()
+        expect(screen.getByText(/gpt-4o/)).toBeInTheDocument()
     })
 
     it('links to the correct analysis detail page', () => {
@@ -68,7 +70,7 @@ describe('AnalysisHistory', () => {
     it('displays the created_at date', () => {
         renderComponent(<AnalysisHistory analyses={mockAnalyses} />)
 
-        expect(screen.getByText('2026-02-01')).toBeInTheDocument()
-        expect(screen.getByText('2026-03-01')).toBeInTheDocument()
+        expect(screen.getByText(/llama-3.3-70b/)).toHaveTextContent(/Feb 2026/)
+        expect(screen.getByText(/gpt-4o/)).toHaveTextContent(/Mar 2026/)
     })
 })
