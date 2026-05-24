@@ -19,6 +19,26 @@ services:
     ports:
       - "5173:5173"
 
+  queue:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      target: dev
+    volumes:
+      - .:/var/www/html
+      - vendor-data:/var/www/html/vendor
+      - node-modules-data:/var/www/html/node_modules
+    networks:
+      - finance-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      AI_GATEWAY_URL: ${AI_GATEWAY_URL:-http://192.168.1.100:8000}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=180"]
+    restart: unless-stopped
+
   nginx:
     build:
       context: ./docker/nginx

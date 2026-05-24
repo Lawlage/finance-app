@@ -61,7 +61,7 @@ class WestpacCsvParser
                 continue;
             }
 
-            $date = Carbon::createFromFormat('m/d/Y', trim((string) $fields[0]));
+            $date = Carbon::createFromFormat('d/m/Y', trim((string) $fields[0]));
 
             if (! $date instanceof Carbon) {
                 throw new InvalidArgumentException("Invalid date format: {$fields[0]}");

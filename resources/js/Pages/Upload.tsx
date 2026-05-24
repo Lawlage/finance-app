@@ -1,9 +1,16 @@
-import { Head, useForm } from '@inertiajs/react'
+import { Head, useForm, router } from '@inertiajs/react'
+import { useState } from 'react'
 import AppLayout from '@/Components/Layout/AppLayout'
 import FileDropzone from '@/Components/Upload/FileDropzone'
+import { formatDateTime } from '@/utils/date'
+import type { Import } from '@/types'
 import type { SyntheticEvent } from 'react'
 
-export default function Upload() {
+interface UploadProps {
+    imports?: Import[]
+}
+
+export default function Upload({ imports = [] }: UploadProps) {
     const { data, setData, post, processing, errors, recentlySuccessful } =
         useForm<{
             statement: File | null
@@ -12,6 +19,7 @@ export default function Upload() {
             statement: null,
             account: '',
         })
+    const [deletingId, setDeletingId] = useState<number | null>(null)
 
     function submit(e: SyntheticEvent) {
         e.preventDefault()
@@ -19,6 +27,15 @@ export default function Upload() {
 
         post('/upload', {
             forceFormData: true,
+        })
+    }
+
+    function deleteImport(id: number) {
+        setDeletingId(id)
+        router.delete(`/imports/${String(id)}`, {
+            onFinish: () => {
+                setDeletingId(null)
+            },
         })
     }
 
@@ -91,6 +108,48 @@ export default function Upload() {
                     )}
                 </form>
             </div>
+
+            {imports.length > 0 && (
+                <div className="mt-8 rounded-lg border border-gray-200 bg-white">
+                    <div className="border-b border-gray-200 px-6 py-4">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Import History
+                        </h2>
+                    </div>
+                    <div className="divide-y divide-gray-200">
+                        {imports.map((imp) => (
+                            <div
+                                key={imp.id}
+                                className="flex items-center justify-between px-6 py-4"
+                            >
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {imp.filename}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {imp.account} &middot;{' '}
+                                        {imp.transaction_count} transactions
+                                        &middot;{' '}
+                                        {formatDateTime(imp.created_at)}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        deleteImport(imp.id)
+                                    }}
+                                    disabled={deletingId === imp.id}
+                                    className="rounded-md border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                >
+                                    {deletingId === imp.id
+                                        ? 'Deleting...'
+                                        : 'Delete'}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </AppLayout>
     )
 }

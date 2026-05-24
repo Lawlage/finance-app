@@ -1,4 +1,6 @@
+import Markdown from 'react-markdown'
 import type { AnalysisRun } from '@/types'
+import { formatDate } from '@/utils/date'
 
 interface RecommendationCardProps {
     analysis: AnalysisRun
@@ -18,10 +20,11 @@ export default function RecommendationCard({
                 </span>
             </div>
             <p className="mb-2 text-sm text-gray-500">
-                Period: {analysis.period_start} to {analysis.period_end}
+                Period: {formatDate(analysis.period_start)} to{' '}
+                {formatDate(analysis.period_end)}
             </p>
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">
-                {analysis.llm_response}
+            <div className="prose prose-sm max-w-none text-gray-700">
+                <Markdown>{analysis.llm_response}</Markdown>
             </div>
         </div>
     )

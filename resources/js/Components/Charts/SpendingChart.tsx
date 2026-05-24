@@ -9,6 +9,10 @@ import {
 } from 'recharts'
 import type { SpendingSummary } from '@/types'
 
+interface ChartEntry extends SpendingSummary {
+    fill: string
+}
+
 interface SpendingChartProps {
     data: SpendingSummary[]
 }
@@ -22,19 +26,24 @@ export default function SpendingChart({ data }: SpendingChartProps) {
         )
     }
 
+    const colored: ChartEntry[] = data.map((entry) => ({
+        ...entry,
+        fill: entry.category.toLowerCase() === 'other' ? '#9ca3af' : '#4f46e5',
+    }))
+
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data}>
+            <BarChart data={colored}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="category" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip
                     formatter={(value) => [
-                        `$${Number(value).toFixed(2)}`,
+                        `$${parseFloat(String(value)).toFixed(2)}`,
                         'Total',
                     ]}
                 />
-                <Bar dataKey="total" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" radius={[4, 4, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
     )

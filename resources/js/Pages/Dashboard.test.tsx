@@ -12,6 +12,7 @@ vi.mock('@inertiajs/react', () => ({
     }) => <a {...props}>{children}</a>,
     Head: ({ title }: { title: string }) => <title>{title}</title>,
     usePage: () => ({ url: '/' }),
+    router: { get: vi.fn() },
 }))
 
 vi.mock('recharts', async () => {
@@ -30,19 +31,27 @@ const defaultProps = {
         { category: 'Transport', total: 120.0 },
     ],
     monthlyTrends: [{ month: '2026-01', income: 5000, expenses: 3200 }],
-    recentTransactions: [
-        {
-            id: 1,
-            date: '2026-01-15',
-            description: 'Countdown',
-            amount: -85.5,
-            category: 'Groceries',
-            account: 'Westpac',
-            raw_text: 'COUNTDOWN',
-            created_at: '2026-01-15',
-            updated_at: '2026-01-15',
-        },
-    ],
+    recentTransactions: {
+        data: [
+            {
+                id: 1,
+                date: '2026-01-15',
+                description: 'Countdown',
+                amount: -85.5,
+                category: 'Groceries',
+                category_locked: false,
+                account: 'Westpac',
+                raw_text: 'COUNTDOWN',
+                import_id: null,
+                created_at: '2026-01-15',
+                updated_at: '2026-01-15',
+            },
+        ],
+        current_page: 1,
+        last_page: 1,
+        per_page: 20,
+        total: 1,
+    },
 }
 
 describe('Dashboard', () => {
@@ -57,9 +66,7 @@ describe('Dashboard', () => {
     it('renders the spending chart section', () => {
         renderComponent(<Dashboard {...defaultProps} />)
 
-        expect(
-            screen.getByText('Monthly Spending by Category'),
-        ).toBeInTheDocument()
+        expect(screen.getByText('Spending by Category')).toBeInTheDocument()
     })
 
     it('renders the income vs expenses section', () => {
@@ -68,10 +75,10 @@ describe('Dashboard', () => {
         expect(screen.getByText('Income vs Expenses')).toBeInTheDocument()
     })
 
-    it('renders the recent transactions section', () => {
+    it('renders the transactions section', () => {
         renderComponent(<Dashboard {...defaultProps} />)
 
-        expect(screen.getByText('Recent Transactions')).toBeInTheDocument()
+        expect(screen.getByText('Transactions')).toBeInTheDocument()
     })
 
     it('renders transaction data', () => {
@@ -85,7 +92,13 @@ describe('Dashboard', () => {
             <Dashboard
                 spendingByCategory={[]}
                 monthlyTrends={[]}
-                recentTransactions={[]}
+                recentTransactions={{
+                    data: [],
+                    current_page: 1,
+                    last_page: 1,
+                    per_page: 20,
+                    total: 0,
+                }}
             />,
         )
 

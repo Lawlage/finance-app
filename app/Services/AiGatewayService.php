@@ -68,9 +68,10 @@ class AiGatewayService
      */
     private function post(string $endpoint, array $data): Response
     {
-        $response = Http::withHeaders([
-            'X-API-Key' => $this->apiKey,
-        ])->post($this->baseUrl.$endpoint, $data);
+        $response = Http::timeout(120)
+            ->withHeaders([
+                'X-API-Key' => $this->apiKey,
+            ])->post($this->baseUrl.$endpoint, $data);
 
         if ($response->status() === 401) {
             throw new AiGatewayAuthException('AI Gateway authentication failed: invalid API key');

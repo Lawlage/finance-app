@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\AnalysisRun;
+use App\Models\JobStatus;
 use App\Models\Transaction;
 use App\Services\AiGatewayService;
 use Illuminate\Bus\Queueable;
@@ -23,10 +24,13 @@ class RunSpendingAnalysis implements ShouldQueue
     public function __construct(
         private readonly string $periodStart,
         private readonly string $periodEnd,
+        private readonly ?int $jobStatusId = null,
     ) {}
 
     public function handle(AiGatewayService $gateway): void
     {
+        $status = $this->jobStatusId ? JobStatus::find($this->jobStatusId) : null;
+
         /** @var array<int, array{category: string, total: float}> $summary */
         $summary = Transaction::whereBetween('date', [$this->periodStart, $this->periodEnd])
             ->whereNotNull('category')
@@ -65,5 +69,15 @@ class RunSpendingAnalysis implements ShouldQueue
             'period' => "{$this->periodStart} to {$this->periodEnd}",
             'model' => $result['model'],
         ]);
+
+        $status?->markCompleted('Analysis complete — view results on the Analysis page');
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        if ($this->jobStatusId) {
+            $status = JobStatus::find($this->jobStatusId);
+            $status?->markFailed('Analysis failed: '.($exception?->getMessage() ?? 'Unknown error'));
+        }
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Models\Import;
+use App\Models\JobStatus;
 use App\Models\Transaction;
 use App\Services\WestpacCsvParser;
 use Illuminate\Bus\Queueable;
@@ -23,10 +25,13 @@ class ProcessUploadedStatement implements ShouldQueue
     public function __construct(
         private readonly string $filePath,
         private readonly string $account,
+        private readonly int $jobStatusId,
     ) {}
 
     public function handle(WestpacCsvParser $parser): void
     {
+        $status = JobStatus::find($this->jobStatusId);
+
         Log::info('Processing uploaded statement', [
             'file' => $this->filePath,
             'account' => $this->account,
@@ -37,9 +42,15 @@ class ProcessUploadedStatement implements ShouldQueue
         if ($contents === null) {
             Log::error('Statement file not found', ['file' => $this->filePath]);
             Storage::delete($this->filePath);
+            $status?->markFailed('Statement file not found');
 
             return;
         }
+
+        $import = Import::create([
+            'filename' => basename($this->filePath),
+            'account' => $this->account,
+        ]);
 
         $rows = $parser->parse($contents, $this->account);
         $inserted = 0;
@@ -60,10 +71,15 @@ class ProcessUploadedStatement implements ShouldQueue
                 continue;
             }
 
-            $transaction = Transaction::create($row);
+            $transaction = Transaction::create([
+                ...$row,
+                'import_id' => $import->id,
+            ]);
             $newIds[] = (int) $transaction->id;
             $inserted++;
         }
+
+        $import->update(['transaction_count' => $inserted]);
 
         Log::info('Statement processing complete', [
             'file' => $this->filePath,
@@ -71,6 +87,8 @@ class ProcessUploadedStatement implements ShouldQueue
             'inserted' => $inserted,
             'skipped' => $skipped,
         ]);
+
+        $status?->markCompleted("Imported {$inserted} transactions ({$skipped} duplicates skipped)");
 
         if ($newIds !== []) {
             $uncategorized = Transaction::whereIn('id', $newIds)
@@ -80,10 +98,17 @@ class ProcessUploadedStatement implements ShouldQueue
 
             /** @var array<int, int> $uncategorized */
             if ($uncategorized !== []) {
-                CategorizeTransactions::dispatch($uncategorized);
+                $catStatus = JobStatus::start('categorize', 'Categorizing '.count($uncategorized).' transactions...');
+                CategorizeTransactions::dispatch($uncategorized, $catStatus->id);
             }
         }
 
         Storage::delete($this->filePath);
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        $status = JobStatus::find($this->jobStatusId);
+        $status?->markFailed('Import failed: '.($exception?->getMessage() ?? 'Unknown error'));
     }
 }

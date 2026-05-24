@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\RunAnalysisRequest;
 use App\Jobs\RunSpendingAnalysis;
 use App\Models\AnalysisRun;
+use App\Models\JobStatus;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,9 +25,11 @@ class AnalysisController extends Controller
 
     public function store(RunAnalysisRequest $request): RedirectResponse
     {
+        $status = JobStatus::start('analysis', 'Running spending analysis...');
         RunSpendingAnalysis::dispatch(
             $request->string('period_start')->toString(),
             $request->string('period_end')->toString(),
+            $status->id,
         );
 
         return redirect()->back()->with('success', 'Analysis job dispatched. Results will appear shortly.');
@@ -37,5 +40,12 @@ class AnalysisController extends Controller
         return Inertia::render('AnalysisShow', [
             'analysis' => $analysisRun,
         ]);
+    }
+
+    public function destroy(AnalysisRun $analysisRun): RedirectResponse
+    {
+        $analysisRun->delete();
+
+        return redirect()->route('analysis')->with('success', 'Analysis deleted.');
     }
 }

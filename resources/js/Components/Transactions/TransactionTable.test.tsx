@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderComponent, screen } from '@/test/utils'
 import TransactionTable from './TransactionTable'
 import type { Transaction } from '@/types'
+
+vi.mock('@inertiajs/react', () => ({
+    router: { patch: vi.fn() },
+}))
 
 const mockTransactions: Transaction[] = [
     {
@@ -10,8 +14,10 @@ const mockTransactions: Transaction[] = [
         description: 'Countdown Supermarket',
         amount: -85.5,
         category: 'Groceries',
+        category_locked: false,
         account: 'Westpac Everyday',
         raw_text: 'COUNTDOWN 1234',
+        import_id: null,
         created_at: '2026-01-15',
         updated_at: '2026-01-15',
     },
@@ -21,8 +27,10 @@ const mockTransactions: Transaction[] = [
         description: 'Salary Deposit',
         amount: 3500.0,
         category: null,
+        category_locked: false,
         account: 'Westpac Everyday',
         raw_text: 'SALARY DEP',
+        import_id: null,
         created_at: '2026-01-16',
         updated_at: '2026-01-16',
     },

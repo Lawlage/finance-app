@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react'
 import { type ReactNode } from 'react'
+import JobStatusBar from './JobStatusBar'
 
 interface AppLayoutProps {
     children: ReactNode
@@ -11,6 +12,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const navItems = [
         { href: '/', label: 'Dashboard' },
         { href: '/upload', label: 'Upload' },
+        { href: '/categories', label: 'Categories' },
         { href: '/analysis', label: 'Analysis' },
     ]
 
@@ -32,7 +34,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                         key={item.href}
                                         href={item.href}
                                         className={`rounded-md px-3 py-2 text-sm font-medium ${
-                                            url === item.href
+                                            url === item.href ||
+                                            (item.href !== '/' &&
+                                                url.startsWith(item.href))
                                                 ? 'bg-gray-100 text-gray-900'
                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                         }`}
@@ -57,6 +61,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {children}
             </main>
+
+            <JobStatusBar />
         </div>
     )
 }

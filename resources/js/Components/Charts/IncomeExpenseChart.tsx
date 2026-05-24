@@ -30,7 +30,9 @@ export default function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
                 <XAxis dataKey="month" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip
-                    formatter={(value) => `$${Number(value).toFixed(2)}`}
+                    formatter={(value) =>
+                        `$${parseFloat(String(value)).toFixed(2)}`
+                    }
                 />
                 <Legend />
                 <Bar

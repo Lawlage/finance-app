@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UploadStatementRequest;
 use App\Jobs\ProcessUploadedStatement;
+use App\Models\Import;
+use App\Models\JobStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
@@ -15,7 +17,11 @@ class UploadController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('Upload');
+        $imports = Import::orderByDesc('created_at')->get();
+
+        return Inertia::render('Upload', [
+            'imports' => $imports,
+        ]);
     }
 
     public function store(UploadStatementRequest $request): RedirectResponse
@@ -28,7 +34,8 @@ class UploadController extends Controller
             return redirect()->back()->withErrors(['statement' => 'Failed to store the uploaded file.']);
         }
 
-        ProcessUploadedStatement::dispatch($path, $request->string('account')->toString());
+        $status = JobStatus::start('import', 'Importing statement...');
+        ProcessUploadedStatement::dispatch($path, $request->string('account')->toString(), $status->id);
 
         return redirect()->back()->with('success', 'Statement uploaded. Processing has been queued.');
     }

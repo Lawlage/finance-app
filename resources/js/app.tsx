@@ -8,7 +8,7 @@ void createInertiaApp({
         title ? `${title} - Finance Analyzer` : 'Finance Analyzer',
     resolve: (name) => {
         const pages = import.meta.glob<{ default: React.ComponentType }>(
-            './Pages/**/*.tsx',
+            ['./Pages/**/*.tsx', '!**/*.test.tsx'],
             { eager: true },
         )
         return pages[`./Pages/${name}.tsx`]
