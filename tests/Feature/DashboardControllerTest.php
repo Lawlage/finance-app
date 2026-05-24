@@ -20,6 +20,7 @@ it('shows the dashboard to authenticated users', function (): void {
             ->has('spendingByCategory')
             ->has('monthlyTrends')
             ->has('recentTransactions')
+            ->has('filters')
         );
 });
 
@@ -47,15 +48,17 @@ it('returns spending by category for the current month', function (): void {
         );
 });
 
-it('returns recent transactions ordered by date', function (): void {
+it('returns recent transactions as paginated data', function (): void {
     $user = User::factory()->create();
 
-    Transaction::factory()->count(3)->create();
+    Transaction::factory()->count(3)->create([
+        'date' => now()->startOfMonth()->addDay(),
+    ]);
 
     $this->actingAs($user)
         ->get('/')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('recentTransactions', 3)
+            ->has('recentTransactions.data', 3)
         );
 });

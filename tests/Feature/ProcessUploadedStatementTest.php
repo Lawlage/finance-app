@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Jobs\CategorizeTransactions;
 use App\Jobs\ProcessUploadedStatement;
+use App\Models\JobStatus;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -11,18 +12,19 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function (): void {
     Storage::fake('local');
     Queue::fake([CategorizeTransactions::class]);
+    $this->jobStatus = JobStatus::start('import', 'Test import');
 });
 
 it('parses a westpac csv and creates transactions', function (): void {
     $csv = <<<'CSV'
 Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
-05/13/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
-05/13/2026,-11.00,"Superstar Bakery","EFTPOS TRANSACTION","13-10:32-514","524651******","7473 00514"
+13/05/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
+13/05/2026,-11.00,"Superstar Bakery","EFTPOS TRANSACTION","13-10:32-514","524651******","7473 00514"
 CSV;
 
     Storage::disk('local')->put('uploads/test.csv', $csv);
 
-    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking', $this->jobStatus->id);
 
     expect(Transaction::count())->toBe(2);
 
@@ -40,12 +42,12 @@ CSV;
 it('dispatches categorize job for uncategorized transactions', function (): void {
     $csv = <<<'CSV'
 Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
-05/13/2026,-11.00,"Superstar Bakery","EFTPOS TRANSACTION","13-10:32-514","524651******","7473 00514"
+13/05/2026,-11.00,"Superstar Bakery","EFTPOS TRANSACTION","13-10:32-514","524651******","7473 00514"
 CSV;
 
     Storage::disk('local')->put('uploads/test.csv', $csv);
 
-    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking', $this->jobStatus->id);
 
     Queue::assertPushed(CategorizeTransactions::class);
 });
@@ -53,33 +55,33 @@ CSV;
 it('skips duplicate transactions on re-upload', function (): void {
     $csv = <<<'CSV'
 Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
-05/13/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
+13/05/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
 CSV;
 
     Storage::disk('local')->put('uploads/first.csv', $csv);
-    ProcessUploadedStatement::dispatchSync('uploads/first.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/first.csv', 'Checking', $this->jobStatus->id);
     expect(Transaction::count())->toBe(1);
 
     Storage::disk('local')->put('uploads/second.csv', $csv);
-    ProcessUploadedStatement::dispatchSync('uploads/second.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/second.csv', 'Checking', $this->jobStatus->id);
     expect(Transaction::count())->toBe(1);
 });
 
 it('deletes the uploaded file after processing', function (): void {
     $csv = <<<'CSV'
 Date,Amount,Other Party,Description,Reference,Particulars,Analysis Code
-05/13/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
+13/05/2026,2764.35,"Global Digital Solut","Salary",,"Salary",
 CSV;
 
     Storage::disk('local')->put('uploads/test.csv', $csv);
 
-    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/test.csv', 'Checking', $this->jobStatus->id);
 
     Storage::disk('local')->assertMissing('uploads/test.csv');
 });
 
 it('handles missing file gracefully', function (): void {
-    ProcessUploadedStatement::dispatchSync('uploads/nonexistent.csv', 'Checking');
+    ProcessUploadedStatement::dispatchSync('uploads/nonexistent.csv', 'Checking', $this->jobStatus->id);
 
     expect(Transaction::count())->toBe(0);
 });
