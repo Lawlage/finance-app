@@ -1,1 +1,1 @@
-docker compose exec -T app sh -c "./vendor/bin/pint --test && ./vendor/bin/phpstan analyse && ./vendor/bin/pest && npx vitest run"
+docker compose exec -T app sh -c "./vendor/bin/pint --test && ./vendor/bin/phpstan analyse --memory-limit=512M && ./vendor/bin/pest && npx vitest run"
