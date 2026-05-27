@@ -6,7 +6,6 @@ namespace App\Mcp\Resources;
 
 use App\Mcp\Concerns\LogsEgress;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -27,10 +26,12 @@ class SpendingSummaryResource extends Resource
 
     public function handle(Request $request): Response
     {
-        $byCategory = DB::table('transactions')
+        $byCategory = Transaction::query()
+            ->excludingLoanAccounts()
             ->where('amount', '<', 0)
             ->whereNotNull('category')
             ->where('category', '!=', Transaction::TRANSFER_CATEGORY)
+            ->toBase()
             ->selectRaw('category, SUM(ABS(amount)) as total')
             ->groupBy('category')
             ->orderByDesc('total')
@@ -41,11 +42,10 @@ class SpendingSummaryResource extends Resource
             ])
             ->all();
 
-        $monthly = DB::table('transactions')
-            ->where(function ($query): void {
-                $query->whereNull('category')
-                    ->orWhere('category', '!=', Transaction::TRANSFER_CATEGORY);
-            })
+        $monthly = Transaction::query()
+            ->excludingLoanAccounts()
+            ->excludingTransfers()
+            ->toBase()
             ->selectRaw("DATE_FORMAT(date, '%Y-%m') as month")
             ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income')
             ->selectRaw('SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses')

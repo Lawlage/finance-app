@@ -23,6 +23,16 @@ class Transaction extends Model
      */
     public const TRANSFER_CATEGORY = 'Transfer';
 
+    /**
+     * Loan (non-cash) account labels. Their ledger lines mirror cash-account
+     * flows: a loan repayment debits a cash account and credits the loan, and
+     * interest is charged against the loan. Counting these alongside the cash
+     * side double-counts the money, so they are excluded from aggregations.
+     *
+     * @var list<string>
+     */
+    public const LOAN_ACCOUNTS = ['Mortgage 1', 'Mortgage 2', 'Mortgage 3'];
+
     protected $fillable = [
         'date',
         'description',
@@ -67,5 +77,17 @@ class Transaction extends Model
             $inner->whereNull('category')
                 ->orWhere('category', '!=', self::TRANSFER_CATEGORY);
         });
+    }
+
+    /**
+     * Exclude loan-account ledger lines, which mirror cash-account flows and
+     * would otherwise double-count money in income/expense aggregations.
+     *
+     * @param  Builder<Transaction>  $query
+     */
+    #[Scope]
+    protected function excludingLoanAccounts(Builder $query): void
+    {
+        $query->whereNotIn('account', self::LOAN_ACCOUNTS);
     }
 }

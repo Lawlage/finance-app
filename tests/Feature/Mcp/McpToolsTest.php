@@ -40,6 +40,38 @@ it('set_category assigns and locks a transaction', function (): void {
     expect($transaction->fresh()->category_locked)->toBeTrue();
 });
 
+it('set_category overrides a locked category and keeps it locked', function (): void {
+    $transaction = Transaction::factory()->create([
+        'category' => 'Manual',
+        'category_locked' => true,
+    ]);
+
+    FinanceServer::actingAs($this->user)
+        ->tool(SetCategoryTool::class, [
+            'transaction_id' => $transaction->id,
+            'category' => 'Dining',
+        ])
+        ->assertOk();
+
+    expect($transaction->fresh()->category)->toBe('Dining');
+    expect($transaction->fresh()->category_locked)->toBeTrue();
+});
+
+it('set_category creates a category that did not exist', function (): void {
+    $transaction = Transaction::factory()->create(['category' => null]);
+
+    expect(Category::where('name', 'Subscriptions')->exists())->toBeFalse();
+
+    FinanceServer::actingAs($this->user)
+        ->tool(SetCategoryTool::class, [
+            'transaction_id' => $transaction->id,
+            'category' => 'Subscriptions',
+        ])
+        ->assertOk();
+
+    expect(Category::where('name', 'Subscriptions')->exists())->toBeTrue();
+});
+
 it('set_category validates the transaction exists', function (): void {
     FinanceServer::actingAs($this->user)
         ->tool(SetCategoryTool::class, ['transaction_id' => 999999, 'category' => 'X'])
@@ -61,6 +93,7 @@ it('bulk_set_category updates many transactions', function (): void {
 
     expect($a->fresh()->category)->toBe('Dining');
     expect($b->fresh()->category)->toBe('Transport');
+    expect(Category::whereIn('name', ['Dining', 'Transport'])->count())->toBe(2);
 });
 
 it('record_analysis persists an analysis run', function (): void {
@@ -140,6 +173,22 @@ it('spending-summary excludes transfers', function (): void {
         ->assertOk()
         ->assertSee('Groceries')
         ->assertDontSee('Transfer');
+});
+
+it('spending-summary excludes loan-account ledger lines that mirror cash flows', function (): void {
+    // Cash side: a real expense that should appear.
+    Transaction::factory()->create(['amount' => -200, 'category' => 'Groceries', 'account' => 'Checking', 'date' => '2026-03-10']);
+
+    // Loan account mirrors: a repayment credit and an interest charge. Neither
+    // should reach the aggregates, so the loan-only category must not appear.
+    Transaction::factory()->create(['amount' => 883, 'category' => 'LoanOnlyCategory', 'account' => 'Mortgage 1', 'date' => '2026-03-10']);
+    Transaction::factory()->create(['amount' => -490, 'category' => 'LoanOnlyCategory', 'account' => 'Mortgage 1', 'date' => '2026-03-10']);
+
+    FinanceServer::actingAs($this->user)
+        ->resource(SpendingSummaryResource::class)
+        ->assertOk()
+        ->assertSee('Groceries')
+        ->assertDontSee('LoanOnlyCategory');
 });
 
 it('categories resource lists category names', function (): void {

@@ -45,6 +45,10 @@ The app publishes a `FinanceServer` MCP server (`app/Mcp/`), registered in `rout
   **never `raw_text`**.
 - The `replacement_rules`, `settings`, and `mcp_access_logs` tables are never MCP primitives.
 - Every MCP response is logged to `mcp_access_logs` (egress audit, surfaced on the Privacy page).
+- `spending-summary` aggregates must avoid double-counting internal flows: exclude the
+  `Transfer` category (own-account moves, incl. bill-funding transfers) **and** loan-account
+  ledger lines that mirror cash flows. Use the `Transaction::excludingTransfers()` and
+  `excludingLoanAccounts()` scopes; loan accounts are listed in `Transaction::LOAN_ACCOUNTS`.
 
 ## PII Sanitization
 
