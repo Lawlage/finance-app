@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Database\Factories\TransactionFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +15,13 @@ class Transaction extends Model
 {
     /** @use HasFactory<TransactionFactory> */
     use HasFactory;
+
+    /**
+     * Transactions in this category are inter-account transfers — money that
+     * moved but did not enter or leave your finances — so they are excluded
+     * from income/expense and spending aggregations.
+     */
+    public const TRANSFER_CATEGORY = 'Transfer';
 
     protected $fillable = [
         'date',
@@ -44,5 +53,19 @@ class Transaction extends Model
     public function import(): BelongsTo
     {
         return $this->belongsTo(Import::class);
+    }
+
+    /**
+     * Exclude inter-account transfers while keeping uncategorized transactions.
+     *
+     * @param  Builder<Transaction>  $query
+     */
+    #[Scope]
+    protected function excludingTransfers(Builder $query): void
+    {
+        $query->where(function (Builder $inner): void {
+            $inner->whereNull('category')
+                ->orWhere('category', '!=', self::TRANSFER_CATEGORY);
+        });
     }
 }

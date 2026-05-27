@@ -37,9 +37,4 @@ return [
         ],
     ],
 
-    'ai_gateway' => [
-        'url' => env('AI_GATEWAY_URL', 'http://192.168.1.100:8000'),
-        'key' => env('AI_GATEWAY_API_KEY'),
-    ],
-
 ];

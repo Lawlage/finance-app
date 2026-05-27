@@ -3,73 +3,48 @@
 declare(strict_types=1);
 
 use App\Jobs\CategorizeTransactions;
-use App\Models\Category;
+use App\Models\CategoryRule;
+use App\Models\JobStatus;
 use App\Models\Transaction;
-use App\Services\AiGatewayService;
 
-it('categorizes uncategorized transactions via the gateway', function (): void {
-    $t1 = Transaction::factory()->create(['category' => null, 'description' => 'Supermarket']);
-    $t2 = Transaction::factory()->create(['category' => null, 'description' => 'Restaurant']);
-
-    $mock = Mockery::mock(AiGatewayService::class);
-    $mock->shouldReceive('categorize')
-        ->once()
-        ->andReturn([
-            ['id' => $t1->id, 'category' => 'Groceries'],
-            ['id' => $t2->id, 'category' => 'Dining'],
-        ]);
-
-    app()->instance(AiGatewayService::class, $mock);
+it('categorizes transactions matching a keyword rule', function (): void {
+    CategoryRule::create(['category' => 'Groceries', 'pattern' => 'supermarket']);
+    $t1 = Transaction::factory()->create(['category' => null, 'description' => 'COUNTDOWN SUPERMARKET']);
+    $t2 = Transaction::factory()->create(['category' => null, 'description' => 'Unknown payee']);
 
     CategorizeTransactions::dispatchSync([$t1->id, $t2->id]);
 
     expect($t1->fresh()->category)->toBe('Groceries');
-    expect($t2->fresh()->category)->toBe('Dining');
+    expect($t2->fresh()->category)->toBeNull();
 });
 
-it('skips already categorized transactions', function (): void {
-    $t1 = Transaction::factory()->create(['category' => 'Existing']);
+it('leaves unmatched transactions for the Claude client', function (): void {
+    $status = JobStatus::start('categorize', 'Categorizing...');
+    $t = Transaction::factory()->create(['category' => null, 'description' => 'Mystery']);
 
-    $mock = Mockery::mock(AiGatewayService::class);
-    $mock->shouldNotReceive('categorize');
+    CategorizeTransactions::dispatchSync([$t->id], $status->id);
 
-    app()->instance(AiGatewayService::class, $mock);
-
-    CategorizeTransactions::dispatchSync([$t1->id]);
-
-    expect($t1->fresh()->category)->toBe('Existing');
+    expect($t->fresh()->category)->toBeNull();
+    expect($status->fresh()->status)->toBe('completed');
+    expect($status->fresh()->message)->toContain('left for Claude');
 });
 
-it('uses default categories when none exist in database', function (): void {
+it('skips already categorized or locked transactions', function (): void {
+    CategoryRule::create(['category' => 'Groceries', 'pattern' => 'super']);
+    $categorized = Transaction::factory()->create(['category' => 'Existing', 'description' => 'super market']);
+    $locked = Transaction::factory()->create(['category' => null, 'category_locked' => true, 'description' => 'super market']);
+
+    CategorizeTransactions::dispatchSync([$categorized->id, $locked->id]);
+
+    expect($categorized->fresh()->category)->toBe('Existing');
+    expect($locked->fresh()->category)->toBeNull();
+});
+
+it('completes cleanly when there are no rules', function (): void {
+    $status = JobStatus::start('categorize', 'Categorizing...');
     $t = Transaction::factory()->create(['category' => null]);
 
-    $mock = Mockery::mock(AiGatewayService::class);
-    $mock->shouldReceive('categorize')
-        ->once()
-        ->withArgs(fn ($transactions, $categories): bool => in_array('Groceries', $categories, true)
-            && in_array('Dining', $categories, true))
-        ->andReturn([
-            ['id' => $t->id, 'category' => 'Groceries'],
-        ]);
+    CategorizeTransactions::dispatchSync([$t->id], $status->id);
 
-    app()->instance(AiGatewayService::class, $mock);
-
-    CategorizeTransactions::dispatchSync([$t->id]);
-});
-
-it('uses database categories when they exist', function (): void {
-    Category::factory()->create(['name' => 'CustomCat']);
-    $t = Transaction::factory()->create(['category' => null]);
-
-    $mock = Mockery::mock(AiGatewayService::class);
-    $mock->shouldReceive('categorize')
-        ->once()
-        ->withArgs(fn ($transactions, $categories): bool => $categories === ['CustomCat'])
-        ->andReturn([
-            ['id' => $t->id, 'category' => 'CustomCat'],
-        ]);
-
-    app()->instance(AiGatewayService::class, $mock);
-
-    CategorizeTransactions::dispatchSync([$t->id]);
+    expect($status->fresh()->status)->toBe('completed');
 });

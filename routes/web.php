@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +25,6 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-    Route::post('/transactions/categorize', [TransactionController::class, 'categorize'])->name('transactions.categorize');
     Route::patch('/transactions/{transaction}/category', [TransactionController::class, 'updateCategory'])->name('transactions.update-category');
 
     Route::get('/upload', [UploadController::class, 'index'])->name('upload');
@@ -42,7 +42,12 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
 
     Route::get('/analysis', [AnalysisController::class, 'index'])->name('analysis');
-    Route::post('/analysis', [AnalysisController::class, 'store'])->name('analysis.store');
     Route::get('/analysis/{analysisRun}', [AnalysisController::class, 'show'])->name('analysis.show');
     Route::delete('/analysis/{analysisRun}', [AnalysisController::class, 'destroy'])->name('analysis.destroy');
+
+    Route::get('/privacy', [PrivacyController::class, 'index'])->name('privacy');
+    Route::patch('/privacy/settings', [PrivacyController::class, 'updateSettings'])->name('privacy.settings');
+    Route::post('/replacement-rules', [PrivacyController::class, 'storeRule'])->name('replacement-rules.store');
+    Route::patch('/replacement-rules/{replacementRule}', [PrivacyController::class, 'updateRule'])->name('replacement-rules.update');
+    Route::delete('/replacement-rules/{replacementRule}', [PrivacyController::class, 'destroyRule'])->name('replacement-rules.destroy');
 });

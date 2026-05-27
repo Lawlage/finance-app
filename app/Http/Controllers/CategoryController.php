@@ -114,7 +114,7 @@ class CategoryController extends Controller
 
         foreach ($transactions as $transaction) {
             foreach ($rules as $rule) {
-                if (str_contains(strtolower($transaction->description), strtolower($rule->pattern))) {
+                if (str_contains(strtolower((string) $transaction->description), strtolower($rule->pattern))) {
                     if ($transaction->category !== $rule->category) {
                         $transaction->update(['category' => $rule->category]);
                         $updated++;

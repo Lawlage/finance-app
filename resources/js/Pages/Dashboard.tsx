@@ -15,7 +15,15 @@ interface Filters {
     range: string
     from: string
     to: string
+    trend?: string
 }
+
+const TREND_OPTIONS = [
+    { value: 'day', label: 'Day' },
+    { value: 'week', label: 'Week' },
+    { value: 'month', label: 'Month' },
+    { value: 'period', label: 'Entire period' },
+]
 
 export interface DashboardProps {
     spendingByCategory: SpendingSummary[]
@@ -43,6 +51,7 @@ export default function Dashboard({
     filters,
 }: DashboardProps) {
     const activeRange = filters?.range ?? 'this_month'
+    const activeTrend = filters?.trend ?? 'month'
     const [customFrom, setCustomFrom] = useState(filters?.from ?? '')
     const [customTo, setCustomTo] = useState(filters?.to ?? '')
 
@@ -50,12 +59,20 @@ export default function Dashboard({
         if (range === 'custom') {
             router.get(
                 '/',
-                { range, from: customFrom, to: customTo },
+                { range, from: customFrom, to: customTo, trend: activeTrend },
                 { preserveState: true },
             )
         } else {
-            router.get('/', { range }, { preserveState: true })
+            router.get(
+                '/',
+                { range, trend: activeTrend },
+                { preserveState: true },
+            )
         }
+    }
+
+    function applyTrend(trend: string) {
+        router.get('/', { ...filters, trend }, { preserveState: true })
     }
 
     return (
@@ -132,9 +149,30 @@ export default function Dashboard({
                 </div>
 
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                        Income vs Expenses
-                    </h2>
+                    <div className="mb-4 flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Income vs Expenses
+                        </h2>
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                            Breakdown
+                            <select
+                                value={activeTrend}
+                                onChange={(e) => {
+                                    applyTrend(e.target.value)
+                                }}
+                                className="rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+                            >
+                                {TREND_OPTIONS.map((option) => (
+                                    <option
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
                     <IncomeExpenseChart data={monthlyTrends} />
                 </div>
             </div>

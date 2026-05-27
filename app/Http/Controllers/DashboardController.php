@@ -29,7 +29,8 @@ class DashboardController extends Controller
             is_string($to) ? $to : null,
         );
 
-        $spendingByCategory = Transaction::where('date', '>=', $startDate)
+        $spendingByCategory = Transaction::excludingTransfers()
+            ->where('date', '>=', $startDate)
             ->where('date', '<=', $endDate)
             ->where('amount', '<', 0)
             ->whereNotNull('category')
@@ -38,14 +39,36 @@ class DashboardController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        $monthlyTrends = Transaction::selectRaw("DATE_FORMAT(date, '%Y-%m') as month")
-            ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income')
-            ->selectRaw('SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses')
-            ->where('date', '>=', $startDate)
-            ->where('date', '<=', $endDate)
-            ->groupByRaw("DATE_FORMAT(date, '%Y-%m')")
-            ->orderBy('month')
-            ->get();
+        $trend = $request->query('trend', 'month');
+        $trend = in_array($trend, ['day', 'week', 'month', 'period'], true) ? $trend : 'month';
+
+        $incomeExpr = 'SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income';
+        $expenseExpr = 'SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses';
+
+        // Bucket label for the income-vs-expense trend at the requested granularity.
+        $labelExpr = match ($trend) {
+            'day' => "DATE_FORMAT(date, '%Y-%m-%d')",
+            'week' => "DATE_FORMAT(date, '%x-W%v')",
+            default => "DATE_FORMAT(date, '%Y-%m')",
+        };
+
+        $monthlyTrends = $trend === 'period'
+            ? Transaction::excludingTransfers()
+                ->selectRaw("'Entire period' as month")
+                ->selectRaw($incomeExpr)
+                ->selectRaw($expenseExpr)
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $endDate)
+                ->get()
+            : Transaction::excludingTransfers()
+                ->selectRaw($labelExpr.' as month')
+                ->selectRaw($incomeExpr)
+                ->selectRaw($expenseExpr)
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $endDate)
+                ->groupByRaw($labelExpr)
+                ->orderByRaw($labelExpr)
+                ->get();
 
         $transactions = Transaction::where('date', '>=', $startDate)
             ->where('date', '<=', $endDate)
@@ -63,6 +86,7 @@ class DashboardController extends Controller
                 'range' => $range,
                 'from' => $startDate->format('Y-m-d'),
                 'to' => $endDate->format('Y-m-d'),
+                'trend' => $trend,
             ],
         ]);
     }

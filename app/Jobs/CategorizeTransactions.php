@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Models\Category;
 use App\Models\CategoryRule;
 use App\Models\JobStatus;
 use App\Models\Transaction;
-use App\Services\AiGatewayService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,6 +14,11 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Applies the user's local keyword rules to categorize transactions. Anything
+ * the rules don't match is left uncategorized for the user's Claude client to
+ * categorize over MCP (set_category / bulk_set_category). No AI runs here.
+ */
 class CategorizeTransactions implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -30,7 +33,7 @@ class CategorizeTransactions implements ShouldQueue
         private readonly ?int $jobStatusId = null,
     ) {}
 
-    public function handle(AiGatewayService $gateway): void
+    public function handle(): void
     {
         $status = $this->jobStatusId ? JobStatus::find($this->jobStatusId) : null;
 
@@ -48,61 +51,24 @@ class CategorizeTransactions implements ShouldQueue
         $rules = CategoryRule::all();
         $ruleMatched = 0;
 
-        if ($rules->isNotEmpty()) {
-            foreach ($transactions as $transaction) {
-                foreach ($rules as $rule) {
-                    if (str_contains(strtolower($transaction->description), strtolower($rule->pattern))) {
-                        $transaction->update(['category' => $rule->category]);
-                        $ruleMatched++;
-                        break;
-                    }
+        foreach ($transactions as $transaction) {
+            foreach ($rules as $rule) {
+                if (str_contains(strtolower((string) $transaction->description), strtolower($rule->pattern))) {
+                    $transaction->update(['category' => $rule->category]);
+                    $ruleMatched++;
+                    break;
                 }
             }
-
-            if ($ruleMatched > 0) {
-                Log::info('Applied category rules', ['count' => $ruleMatched]);
-            }
-
-            $transactions = Transaction::whereIn('id', $this->transactionIds)
-                ->whereNull('category')
-                ->where('category_locked', false)
-                ->get();
-
-            if ($transactions->isEmpty()) {
-                $status?->markCompleted("Categorized {$ruleMatched} transactions via rules");
-
-                return;
-            }
         }
 
-        /** @var array<int, string> $categories */
-        $categories = Category::pluck('name')->toArray();
+        $remaining = $transactions->count() - $ruleMatched;
+        Log::info('Applied category rules', ['matched' => $ruleMatched, 'remaining' => $remaining]);
 
-        if ($categories === []) {
-            $categories = [
-                'Groceries', 'Dining', 'Transport', 'Utilities',
-                'Income', 'Rent', 'Healthcare', 'Entertainment', 'Other',
-            ];
-        }
+        $message = $remaining > 0
+            ? "Categorized {$ruleMatched} via rules — {$remaining} left for Claude (MCP)"
+            : "Categorized {$ruleMatched} transactions via rules";
 
-        /** @var array<int, array{id: int, description: string, amount: float}> $payload */
-        $payload = $transactions->map(fn (Transaction $t): array => [
-            'id' => $t->id,
-            'description' => $t->description,
-            'amount' => (float) $t->amount,
-        ])->toArray();
-
-        $results = $gateway->categorize($payload, $categories);
-
-        foreach ($results as $result) {
-            Transaction::where('id', $result['id'])
-                ->update(['category' => $result['category']]);
-        }
-
-        $aiCount = count($results);
-        $total = $ruleMatched + $aiCount;
-        Log::info('Categorized transactions', ['rules' => $ruleMatched, 'ai' => $aiCount]);
-        $status?->markCompleted("Categorized {$total} transactions ({$ruleMatched} rules, {$aiCount} AI)");
+        $status?->markCompleted($message);
     }
 
     public function failed(?\Throwable $exception): void

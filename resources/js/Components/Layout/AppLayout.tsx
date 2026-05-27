@@ -14,6 +14,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         { href: '/upload', label: 'Upload' },
         { href: '/categories', label: 'Categories' },
         { href: '/analysis', label: 'Analysis' },
+        { href: '/privacy', label: 'Privacy & MCP' },
     ]
 
     return (
