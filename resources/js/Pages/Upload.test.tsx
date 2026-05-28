@@ -4,6 +4,7 @@ import Upload from './Upload'
 
 const mockPost = vi.fn()
 const mockSetData = vi.fn()
+const { mockDelete } = vi.hoisted(() => ({ mockDelete: vi.fn() }))
 let mockFormState = {
     data: { statement: null as File | null, account: '' },
     setData: mockSetData,
@@ -24,6 +25,7 @@ vi.mock('@inertiajs/react', () => ({
     Head: ({ title }: { title: string }) => <title>{title}</title>,
     usePage: () => ({ url: '/upload' }),
     useForm: () => mockFormState,
+    router: { delete: mockDelete },
 }))
 
 beforeEach(() => {
@@ -35,9 +37,26 @@ beforeEach(() => {
         errors: {},
         recentlySuccessful: false,
     }
-    mockPost.mockClear()
-    mockSetData.mockClear()
+    mockPost.mockReset()
+    mockSetData.mockReset()
+    mockDelete.mockReset()
+    mockDelete.mockImplementation(
+        (_url: string, opts?: { onFinish?: () => void }) => {
+            opts?.onFinish?.()
+        },
+    )
 })
+
+const mockImports = [
+    {
+        id: 1,
+        filename: 'westpac-jan.csv',
+        account: 'Westpac Everyday',
+        transaction_count: 42,
+        created_at: '2026-01-31T10:00:00Z',
+        updated_at: '2026-01-31T10:00:00Z',
+    },
+]
 
 describe('Upload', () => {
     it('renders the page heading', () => {
@@ -154,5 +173,41 @@ describe('Upload', () => {
         expect(
             screen.getByRole('button', { name: 'Uploading...' }),
         ).toBeInTheDocument()
+    })
+
+    it('renders import history when imports are provided', () => {
+        renderComponent(<Upload imports={mockImports} />)
+
+        expect(screen.getByText('Import History')).toBeInTheDocument()
+        expect(screen.getByText('westpac-jan.csv')).toBeInTheDocument()
+        expect(
+            screen.getByText(/Westpac Everyday.*42 transactions/),
+        ).toBeInTheDocument()
+    })
+
+    it('does not render import history when there are no imports', () => {
+        renderComponent(<Upload imports={[]} />)
+
+        expect(screen.queryByText('Import History')).not.toBeInTheDocument()
+    })
+
+    it('deletes an import via router.delete', () => {
+        renderComponent(<Upload imports={mockImports} />)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+        expect(mockDelete).toHaveBeenCalledWith('/imports/1', expect.anything())
+    })
+
+    it('stores the chosen statement file via the dropzone', () => {
+        const { container } = renderComponent(<Upload />)
+
+        const fileInput = container.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement
+        const file = new File(['data'], 'statement.csv', { type: 'text/csv' })
+        fireEvent.change(fileInput, { target: { files: [file] } })
+
+        expect(mockSetData).toHaveBeenCalledWith('statement', file)
     })
 })

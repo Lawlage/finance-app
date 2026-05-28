@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { renderComponent, screen } from '@/test/utils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderComponent, screen, fireEvent } from '@/test/utils'
 import AnalysisShow from './AnalysisShow'
+
+const { mockDelete } = vi.hoisted(() => ({ mockDelete: vi.fn() }))
 
 vi.mock('@inertiajs/react', () => ({
     Link: ({
@@ -12,7 +14,12 @@ vi.mock('@inertiajs/react', () => ({
     }) => <a {...props}>{children}</a>,
     Head: ({ title }: { title: string }) => <title>{title}</title>,
     usePage: () => ({ url: '/analysis/1' }),
+    router: { delete: mockDelete },
 }))
+
+beforeEach(() => {
+    mockDelete.mockClear()
+})
 
 const mockAnalysis = {
     id: 1,
@@ -43,5 +50,13 @@ describe('AnalysisShow', () => {
         expect(screen.getByText('Model: llama-3.3-70b')).toBeInTheDocument()
         expect(screen.getByText(/Period:/)).toBeInTheDocument()
         expect(screen.getByText(/Jan 2026/)).toBeInTheDocument()
+    })
+
+    it('deletes the analysis via router.delete', () => {
+        renderComponent(<AnalysisShow analysis={mockAnalysis} />)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+        expect(mockDelete).toHaveBeenCalledWith('/analysis/1')
     })
 })

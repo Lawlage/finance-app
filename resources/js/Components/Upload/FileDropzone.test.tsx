@@ -58,6 +58,35 @@ describe('FileDropzone', () => {
         expect(onFileSelect).toHaveBeenCalledWith(file)
     })
 
+    it('ignores a drop with no files', () => {
+        const onFileSelect = vi.fn()
+        renderComponent(
+            <FileDropzone onFileSelect={onFileSelect} accept=".pdf,.csv" />,
+        )
+
+        const dropzone = screen
+            .getByText('Drag and drop a bank statement, or click to browse')
+            .closest('div[class*="cursor-pointer"]') as HTMLElement
+
+        fireEvent.drop(dropzone, { dataTransfer: { files: [] } })
+
+        expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
+    it('ignores a change event with no file', () => {
+        const onFileSelect = vi.fn()
+        renderComponent(
+            <FileDropzone onFileSelect={onFileSelect} accept=".pdf,.csv" />,
+        )
+
+        const input = document.querySelector(
+            'input[type="file"]',
+        ) as HTMLInputElement
+        fireEvent.change(input, { target: { files: [] } })
+
+        expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
     it('applies drag styling on drag over', () => {
         renderComponent(
             <FileDropzone onFileSelect={vi.fn()} accept=".pdf,.csv" />,

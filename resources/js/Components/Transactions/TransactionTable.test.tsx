@@ -1,11 +1,22 @@
-import { describe, it, expect, vi } from 'vitest'
-import { renderComponent, screen } from '@/test/utils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderComponent, screen, fireEvent } from '@/test/utils'
 import TransactionTable from './TransactionTable'
 import type { Transaction } from '@/types'
 
+const { mockPatch } = vi.hoisted(() => ({ mockPatch: vi.fn() }))
+
 vi.mock('@inertiajs/react', () => ({
-    router: { patch: vi.fn() },
+    router: { patch: mockPatch },
 }))
+
+beforeEach(() => {
+    mockPatch.mockReset()
+    mockPatch.mockImplementation(
+        (_url: string, _data: unknown, opts?: { onSuccess?: () => void }) => {
+            opts?.onSuccess?.()
+        },
+    )
+})
 
 const mockTransactions: Transaction[] = [
     {
@@ -90,5 +101,74 @@ describe('TransactionTable', () => {
 
         const positiveAmount = screen.getByText('$3500.00')
         expect(positiveAmount).toHaveClass('text-green-600')
+    })
+
+    it('saves an edited category via the Save button', () => {
+        renderComponent(<TransactionTable transactions={mockTransactions} />)
+
+        fireEvent.click(screen.getByText('Groceries'))
+        const input = screen.getByDisplayValue('Groceries')
+        fireEvent.change(input, { target: { value: 'Food' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(mockPatch).toHaveBeenCalledWith(
+            '/transactions/1/category',
+            { category: 'Food' },
+            expect.anything(),
+        )
+    })
+
+    it('saves on Enter and ignores empty input', () => {
+        renderComponent(<TransactionTable transactions={mockTransactions} />)
+
+        fireEvent.click(screen.getByText('Uncategorized'))
+        const input = screen.getByDisplayValue('')
+
+        fireEvent.keyDown(input, { key: 'Enter' })
+        expect(mockPatch).not.toHaveBeenCalled()
+
+        fireEvent.change(input, { target: { value: 'Income' } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        expect(mockPatch).toHaveBeenCalled()
+    })
+
+    it('cancels editing on Escape and via the Cancel button', () => {
+        renderComponent(<TransactionTable transactions={mockTransactions} />)
+
+        fireEvent.click(screen.getByText('Groceries'))
+        fireEvent.keyDown(screen.getByDisplayValue('Groceries'), {
+            key: 'Escape',
+        })
+        expect(screen.queryByDisplayValue('Groceries')).not.toBeInTheDocument()
+
+        fireEvent.click(screen.getByText('Groceries'))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(screen.queryByDisplayValue('Groceries')).not.toBeInTheDocument()
+    })
+
+    it('shows a lock icon for category-locked transactions', () => {
+        renderComponent(
+            <TransactionTable
+                transactions={[
+                    {
+                        ...mockTransactions[0],
+                        category: 'Groceries',
+                        category_locked: true,
+                    },
+                ]}
+            />,
+        )
+
+        expect(screen.getByTitle('Manually overridden')).toBeInTheDocument()
+    })
+
+    it('styles the "Other" category in muted gray', () => {
+        renderComponent(
+            <TransactionTable
+                transactions={[{ ...mockTransactions[0], category: 'Other' }]}
+            />,
+        )
+
+        expect(screen.getByText('Other')).toHaveClass('bg-gray-200')
     })
 })

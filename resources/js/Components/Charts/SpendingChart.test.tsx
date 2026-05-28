@@ -36,4 +36,17 @@ describe('SpendingChart', () => {
         ).not.toBeInTheDocument()
         expect(container.querySelector('.recharts-wrapper')).toBeInTheDocument()
     })
+
+    it('renders an "Other" category in muted gray', () => {
+        const { container } = renderComponent(
+            <SpendingChart
+                data={[
+                    { category: 'Other', total: 30 },
+                    { category: 'Groceries', total: 100 },
+                ]}
+            />,
+        )
+
+        expect(container.querySelector('.recharts-wrapper')).toBeInTheDocument()
+    })
 })

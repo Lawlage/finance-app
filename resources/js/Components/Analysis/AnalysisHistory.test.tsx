@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
-import { renderComponent, screen } from '@/test/utils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderComponent, screen, fireEvent } from '@/test/utils'
 import AnalysisHistory from './AnalysisHistory'
 import type { AnalysisRun } from '@/types'
+
+const { mockDelete } = vi.hoisted(() => ({ mockDelete: vi.fn() }))
 
 vi.mock('@inertiajs/react', () => ({
     Link: ({
@@ -11,7 +13,17 @@ vi.mock('@inertiajs/react', () => ({
         children: React.ReactNode
         [key: string]: unknown
     }) => <a {...props}>{children}</a>,
+    router: { delete: mockDelete },
 }))
+
+beforeEach(() => {
+    mockDelete.mockReset()
+    mockDelete.mockImplementation(
+        (_url: string, opts?: { onFinish?: () => void }) => {
+            opts?.onFinish?.()
+        },
+    )
+})
 
 const mockAnalyses: AnalysisRun[] = [
     {
@@ -72,5 +84,16 @@ describe('AnalysisHistory', () => {
 
         expect(screen.getByText(/llama-3.3-70b/)).toHaveTextContent(/Feb 2026/)
         expect(screen.getByText(/gpt-4o/)).toHaveTextContent(/Mar 2026/)
+    })
+
+    it('deletes an analysis via router.delete', () => {
+        renderComponent(<AnalysisHistory analyses={mockAnalyses} />)
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+        expect(mockDelete).toHaveBeenCalledWith(
+            '/analysis/1',
+            expect.anything(),
+        )
     })
 })

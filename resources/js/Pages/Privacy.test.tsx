@@ -47,6 +47,11 @@ const props = {
     ],
 }
 
+interface Callbacks {
+    onSuccess?: () => void
+    onFinish?: () => void
+}
+
 beforeEach(() => {
     mockFormState = {
         data: { value: '', label: '' },
@@ -55,10 +60,21 @@ beforeEach(() => {
         reset: mockReset,
         processing: false,
     }
-    mockPost.mockClear()
-    mockSetData.mockClear()
-    mockPatch.mockClear()
-    mockDelete.mockClear()
+    mockPost.mockReset()
+    mockSetData.mockReset()
+    mockPatch.mockReset()
+    mockDelete.mockReset()
+    mockPost.mockImplementation((_url: string, opts?: Callbacks) => {
+        opts?.onSuccess?.()
+    })
+    mockPatch.mockImplementation(
+        (_url: string, _data: unknown, opts?: Callbacks) => {
+            opts?.onSuccess?.()
+        },
+    )
+    mockDelete.mockImplementation((_url: string, opts?: Callbacks) => {
+        opts?.onFinish?.()
+    })
 })
 
 describe('Privacy', () => {
@@ -128,5 +144,91 @@ describe('Privacy', () => {
         expect(screen.queryByText('{"count":1}')).not.toBeInTheDocument()
         fireEvent.click(screen.getByText('finance://transactions'))
         expect(screen.getByText('{"count":1}')).toBeInTheDocument()
+        fireEvent.click(screen.getByText('finance://transactions'))
+        expect(screen.queryByText('{"count":1}')).not.toBeInTheDocument()
+    })
+
+    it('updates the new-rule form fields', () => {
+        renderComponent(<Privacy {...props} />)
+
+        fireEvent.change(
+            screen.getByPlaceholderText('Account number or name'),
+            { target: { value: '12-3456' } },
+        )
+        fireEvent.change(screen.getByPlaceholderText('Label'), {
+            target: { value: 'Joint' },
+        })
+
+        expect(mockSetData).toHaveBeenCalledWith('value', '12-3456')
+        expect(mockSetData).toHaveBeenCalledWith('label', 'Joint')
+    })
+
+    it('deletes a replacement rule via router.delete', () => {
+        renderComponent(<Privacy {...props} />)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+        expect(mockDelete).toHaveBeenCalledWith(
+            '/replacement-rules/1',
+            expect.anything(),
+        )
+    })
+
+    it('cancels an edit without saving', () => {
+        renderComponent(<Privacy {...props} />)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        expect(mockPatch).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    })
+
+    it('selects the pseudonym fallback mode', () => {
+        renderComponent(<Privacy {...props} fallbackMode="redact" />)
+
+        fireEvent.click(
+            screen.getByRole('radio', { name: /Stable pseudonyms/ }),
+        )
+
+        expect(mockPatch).toHaveBeenCalledWith('/privacy/settings', {
+            fallback_mode: 'pseudonym',
+        })
+    })
+
+    it('edits both fields of a replacement rule before saving', () => {
+        renderComponent(<Privacy {...props} />)
+
+        fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+        fireEvent.change(screen.getByDisplayValue('38-9009-0123456-00'), {
+            target: { value: '00-1111-2222222-00' },
+        })
+        fireEvent.change(screen.getByDisplayValue('Joint Savings'), {
+            target: { value: 'Renamed' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(mockPatch).toHaveBeenCalledWith(
+            '/replacement-rules/1',
+            { value: '00-1111-2222222-00', label: 'Renamed' },
+            expect.anything(),
+        )
+    })
+
+    it('shows empty states when there are no rules or audit entries', () => {
+        renderComponent(
+            <Privacy
+                rules={[]}
+                fallbackMode="redact"
+                accountLabels={[]}
+                auditLog={[]}
+            />,
+        )
+
+        expect(screen.getByText('No replacements yet.')).toBeInTheDocument()
+        expect(screen.getByText('No MCP activity yet.')).toBeInTheDocument()
+        expect(
+            screen.getByRole('radio', { name: /Flat redaction/ }),
+        ).toBeChecked()
     })
 })
