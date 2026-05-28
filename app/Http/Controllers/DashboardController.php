@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -12,6 +13,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    /** Sentinel filter value selecting transactions with no category. */
+    private const string UNCATEGORIZED = '__uncategorized__';
+
     public function index(Request $request): Response
     {
         $range = $request->query('range', 'this_month');
@@ -70,23 +74,33 @@ class DashboardController extends Controller
                 ->orderByRaw($labelExpr)
                 ->get();
 
+        $category = $request->query('category');
+        $category = is_string($category) && $category !== '' ? $category : null;
+
         $transactions = Transaction::where('date', '>=', $startDate)
             ->where('date', '<=', $endDate)
+            ->when($category === self::UNCATEGORIZED, fn ($query) => $query->whereNull('category'))
+            ->when(
+                $category !== null && $category !== self::UNCATEGORIZED,
+                fn ($query) => $query->where('category', $category),
+            )
             ->orderByDesc('date')
             ->orderByDesc('id')
-            ->paginate(20)
+            ->paginate(100)
             ->withQueryString();
 
         return Inertia::render('Dashboard', [
             'spendingByCategory' => $spendingByCategory,
             'monthlyTrends' => $monthlyTrends,
             'recentTransactions' => $transactions,
+            'categories' => Category::orderBy('name')->pluck('name'),
             'currentPeriod' => $periodLabel,
             'filters' => [
                 'range' => $range,
                 'from' => $startDate->format('Y-m-d'),
                 'to' => $endDate->format('Y-m-d'),
                 'trend' => $trend,
+                'category' => $category,
             ],
         ]);
     }

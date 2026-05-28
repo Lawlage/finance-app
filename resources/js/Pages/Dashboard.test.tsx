@@ -49,9 +49,10 @@ const defaultProps = {
         ],
         current_page: 1,
         last_page: 1,
-        per_page: 20,
+        per_page: 100,
         total: 1,
     },
+    categories: ['Groceries', 'Transport'],
 }
 
 describe('Dashboard', () => {
@@ -87,6 +88,20 @@ describe('Dashboard', () => {
         expect(screen.getByText('Countdown')).toBeInTheDocument()
     })
 
+    it('renders the category filter with options', () => {
+        renderComponent(<Dashboard {...defaultProps} />)
+
+        expect(
+            screen.getByRole('option', { name: 'All categories' }),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByRole('option', { name: 'Uncategorized' }),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByRole('option', { name: 'Groceries' }),
+        ).toBeInTheDocument()
+    })
+
     it('renders with empty data', () => {
         renderComponent(
             <Dashboard
@@ -96,9 +111,10 @@ describe('Dashboard', () => {
                     data: [],
                     current_page: 1,
                     last_page: 1,
-                    per_page: 20,
+                    per_page: 100,
                     total: 0,
                 }}
+                categories={[]}
             />,
         )
 

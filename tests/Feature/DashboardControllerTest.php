@@ -111,6 +111,49 @@ it('excludes transfers from income, expenses and spending', function (): void {
         );
 });
 
+it('filters transactions by category', function (): void {
+    $user = User::factory()->create();
+    $date = now()->startOfMonth();
+
+    Transaction::factory()->create(['date' => $date, 'category' => 'Groceries', 'description' => 'Countdown']);
+    Transaction::factory()->create(['date' => $date, 'category' => 'Transport', 'description' => 'Uber']);
+
+    $this->actingAs($user)
+        ->get('/?range=this_month&category=Groceries')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('recentTransactions.data', 1)
+            ->where('recentTransactions.data.0.category', 'Groceries')
+            ->where('filters.category', 'Groceries')
+        );
+});
+
+it('filters to uncategorized transactions', function (): void {
+    $user = User::factory()->create();
+    $date = now()->startOfMonth();
+
+    Transaction::factory()->create(['date' => $date, 'category' => 'Groceries']);
+    Transaction::factory()->count(2)->create(['date' => $date, 'category' => null]);
+
+    $this->actingAs($user)
+        ->get('/?range=this_month&category=__uncategorized__')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('recentTransactions.data', 2));
+});
+
+it('paginates transactions in pages of 100', function (): void {
+    $user = User::factory()->create();
+    Transaction::factory()->count(150)->create(['date' => now()->startOfMonth()]);
+
+    $this->actingAs($user)
+        ->get('/?range=this_month')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('recentTransactions.data', 100)
+            ->where('recentTransactions.per_page', 100)
+        );
+});
+
 it('returns recent transactions as paginated data', function (): void {
     $user = User::factory()->create();
 

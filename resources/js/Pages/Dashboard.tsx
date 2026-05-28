@@ -16,7 +16,10 @@ interface Filters {
     from: string
     to: string
     trend?: string
+    category?: string | null
 }
+
+const UNCATEGORIZED = '__uncategorized__'
 
 const TREND_OPTIONS = [
     { value: 'day', label: 'Day' },
@@ -29,6 +32,7 @@ export interface DashboardProps {
     spendingByCategory: SpendingSummary[]
     monthlyTrends: MonthlyTrend[]
     recentTransactions: PaginatedData<Transaction>
+    categories: string[]
     currentPeriod?: string
     filters?: Filters
 }
@@ -47,11 +51,13 @@ export default function Dashboard({
     spendingByCategory,
     monthlyTrends,
     recentTransactions,
+    categories,
     currentPeriod,
     filters,
 }: DashboardProps) {
     const activeRange = filters?.range ?? 'this_month'
     const activeTrend = filters?.trend ?? 'month'
+    const activeCategory = filters?.category ?? ''
     const [customFrom, setCustomFrom] = useState(filters?.from ?? '')
     const [customTo, setCustomTo] = useState(filters?.to ?? '')
 
@@ -59,13 +65,19 @@ export default function Dashboard({
         if (range === 'custom') {
             router.get(
                 '/',
-                { range, from: customFrom, to: customTo, trend: activeTrend },
+                {
+                    range,
+                    from: customFrom,
+                    to: customTo,
+                    trend: activeTrend,
+                    category: activeCategory,
+                },
                 { preserveState: true },
             )
         } else {
             router.get(
                 '/',
-                { range, trend: activeTrend },
+                { range, trend: activeTrend, category: activeCategory },
                 { preserveState: true },
             )
         }
@@ -73,6 +85,10 @@ export default function Dashboard({
 
     function applyTrend(trend: string) {
         router.get('/', { ...filters, trend }, { preserveState: true })
+    }
+
+    function applyCategory(category: string) {
+        router.get('/', { ...filters, category }, { preserveState: true })
     }
 
     return (
@@ -178,13 +194,31 @@ export default function Dashboard({
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-white">
-                <div className="border-b border-gray-200 px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-6 py-4">
                     <h2 className="text-lg font-semibold text-gray-900">
                         Transactions
                         <span className="ml-2 text-sm font-normal text-gray-500">
                             {recentTransactions.total} total
                         </span>
                     </h2>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                        Category
+                        <select
+                            value={activeCategory}
+                            onChange={(e) => {
+                                applyCategory(e.target.value)
+                            }}
+                            className="rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+                        >
+                            <option value="">All categories</option>
+                            <option value={UNCATEGORIZED}>Uncategorized</option>
+                            {categories.map((category) => (
+                                <option key={category} value={category}>
+                                    {category}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
                 </div>
                 <TransactionTable transactions={recentTransactions.data} />
                 {recentTransactions.last_page > 1 && (
