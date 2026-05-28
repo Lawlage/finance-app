@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\DB;
@@ -35,8 +36,13 @@ class BulkSetCategoryTool extends Tool
         $updated = DB::transaction(function () use ($assignments): int {
             $count = 0;
             foreach ($assignments as $assignment) {
+                $category = (string) $assignment['category'];
+
+                // Promote any new category to a first-class, managed category.
+                Category::firstOrCreate(['name' => $category]);
+
                 $count += Transaction::where('id', (int) $assignment['transaction_id'])->update([
-                    'category' => (string) $assignment['category'],
+                    'category' => $category,
                     'category_locked' => true,
                 ]);
             }

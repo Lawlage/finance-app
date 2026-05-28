@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -28,6 +29,9 @@ class SetCategoryTool extends Tool
         ]);
 
         $category = $request->string('category')->toString();
+
+        // Promote any new category to a first-class, managed category.
+        Category::firstOrCreate(['name' => $category]);
 
         /** @var Transaction $transaction */
         $transaction = Transaction::query()->findOrFail($request->integer('transaction_id'));
