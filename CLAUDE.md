@@ -1,4 +1,6 @@
-# Finance App - Claude Code Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -11,9 +13,10 @@ and spending analyses. There is no locally-hosted AI and no LLM API key in the a
 
 - **Backend:** Laravel 13, PHP 8.3, MySQL 8
 - **Frontend:** React 19, TypeScript, Inertia.js v3, Tailwind CSS v4, Recharts
-- **Auth:** Laravel Sanctum (cookie-based SPA auth)
-- **Queue:** Database driver
-- **Containerization:** Docker (app, nginx, mysql)
+- **Auth:** Laravel Sanctum (cookie-based SPA auth + personal access tokens for MCP)
+- **MCP:** `laravel/mcp` (^0.7) — app acts as the MCP server
+- **Queue:** Database driver (dedicated `queue` container runs `queue:work` automatically)
+- **Containerization:** Docker (app, queue, nginx, mysql)
 
 ## Development
 
@@ -22,7 +25,7 @@ All commands run inside Docker via `docker compose exec app <command>`.
 - `make up` — start containers
 - `make shell` — open container shell
 - `make dev` — start Vite dev server (HMR on port 5173)
-- `make queue` — start queue worker
+- `make queue` — run a queue worker manually (the `queue` container already runs one)
 - `make migrate` — run migrations
 - App available at http://localhost:8080
 
@@ -31,7 +34,8 @@ All commands run inside Docker via `docker compose exec app <command>`.
 The app publishes a `FinanceServer` MCP server (`app/Mcp/`), registered in `routes/ai.php`:
 
 - **Transport:** local only — `Mcp::web('/mcp/finance', ...)` over the LAN behind
-  `auth:sanctum` (Bearer personal access token) + `throttle:mcp`, plus `Mcp::local('finance')`
+  `auth:sanctum` (Bearer personal access token) + `throttle:mcp` (60/min, defined in
+  `AppServiceProvider::boot()`), plus `Mcp::local('finance')`
   for stdio / `php artisan mcp:inspector finance`. No OAuth, no public exposure.
 - **Resources (read):** `finance://transactions`, `finance://spending-summary`,
   `finance://categories`, `finance://category-rules`, `finance://analyses`.
@@ -61,6 +65,18 @@ The app publishes a `FinanceServer` MCP server (`app/Mcp/`), registered in `rout
 
 Manage the map, mode, and audit log on the **Privacy & MCP** page (`/privacy`).
 
+## Routes
+
+- **Web** (Inertia, `auth` middleware) — `routes/web.php`: Dashboard `GET /`; Transactions
+  (`store`, `categorize`, `PATCH .../category`); Upload (`GET`/`POST /upload`); Categories CRUD
+  + category-rules CRUD + `POST /categories/recategorize`; Imports `DELETE /imports/{import}`;
+  Analysis (`index`, `show`, `destroy`); Privacy (`GET /privacy`, `PATCH /privacy/settings`,
+  replacement-rules CRUD). Login routes under `guest`.
+- **API** (`auth:sanctum`) — `routes/api.php`: `GET /user`, `GET /job-statuses`,
+  `DELETE /job-statuses/{jobStatus}`.
+- **MCP** — `routes/ai.php` (see MCP Server section); auto-loaded by `laravel/mcp`, not listed
+  in `bootstrap/app.php`.
+
 ## Testing
 
 Four test layers, all enforcing **90% minimum coverage**:
@@ -71,10 +87,16 @@ Four test layers, all enforcing **90% minimum coverage**:
 | Frontend | Vitest + Testing Lib| vitest.config.ts     | `make test-frontend-cover`|
 | E2E      | Playwright          | playwright.config.ts | `make test-e2e`          |
 
-- Backend tests: RefreshDatabase trait, MySQL (finance_test DB), array drivers for cache/queue/sessions
+- Backend tests: RefreshDatabase trait, MySQL (finance_test DB); test env (phpunit.xml) uses
+  `CACHE_STORE=array`, `SESSION_DRIVER=array`, `QUEUE_CONNECTION=sync`
 - Frontend tests: jsdom, v8 coverage, renderComponent() utility
 - E2E: Chromium + Firefox, screenshots/videos/traces on failure
 - Full suite: `make ci` (backend + frontend lint + test, no E2E)
+
+**Run a single test:**
+- Backend (Pest): `docker compose exec app ./vendor/bin/pest --filter="test name"` (or a path, e.g. `tests/Feature/UploadTest.php`)
+- Frontend (Vitest): `docker compose exec app npx vitest run resources/js/Pages/Dashboard.test.tsx` (or `-t "name"`)
+- E2E (Playwright): `npx playwright test tests/e2e/upload.spec.ts`
 
 ## Code Quality
 
