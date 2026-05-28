@@ -40,11 +40,25 @@ export interface AnalysisRun {
     id: number
     period_start: string
     period_end: string
-    prompt_used: string
+    prompt_used: string | null
     llm_response: string
     model: string
     created_at: string
     updated_at: string
+}
+
+export interface ReplacementRule {
+    id: number
+    value: string
+    label: string
+}
+
+export interface McpAccessLogEntry {
+    id: number
+    primitive: string
+    name: string
+    payload: string
+    created_at: string
 }
 
 export interface JobStatus {
@@ -78,6 +92,7 @@ export interface SpendingSummary {
 
 export interface MonthlyTrend {
     month: string
-    income: number
-    expenses: number
+    // Aggregated SUM()s arrive from the API as numeric strings.
+    income: number | string
+    expenses: number | string
 }

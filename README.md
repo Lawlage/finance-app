@@ -1,18 +1,21 @@
 # Finance Analyzer
 
-A self-hosted personal finance analyzer that uses AI to categorize transactions and provide spending insights. Built with Laravel, React, and powered by a local LLM (Llama 3.3 70B) running on a separate machine.
+A self-hosted personal finance analyzer that uses AI to categorize transactions and provide spending insights. Built with Laravel and React, it **exposes its own MCP server** so you connect your own Claude client (Claude Desktop / Code) to do the analysis — no AI runs locally and the app holds no LLM API key.
 
 ## Architecture
 
 ```
-React Frontend (this service)
-      ↓
-Laravel Backend (this service)
-      ↓ HTTP + API key (LAN)
-Python FastAPI AI Gateway (separate machine)
-      ↓
-Ollama (Llama 3.3 70B)
+Your Claude client (Claude Desktop / Code)
+      ↓ MCP over LAN (Sanctum bearer token)
+Laravel Backend + MCP server (this service)
+      ↓  PII sanitized at the egress boundary
+React Frontend (this service)  +  MySQL 8
 ```
+
+Transaction data is sanitized by `TransactionSanitizer` before any of it leaves the app:
+a user-defined replacement map (encrypted) swaps account numbers/names for friendly labels,
+and a regex fallback redacts or pseudonymises anything else. `raw_text` is never exposed.
+Every MCP response is logged for audit ("what did Claude see?" on the Privacy page).
 
 ## Tech Stack
 
@@ -37,7 +40,6 @@ cd finance-app
 
 # Copy environment file and configure
 cp .env.example .env
-# Edit .env with your AI gateway IP and API key
 
 # Build and start containers
 make build
@@ -106,11 +108,13 @@ make analyse         # Static analysis only
 ├── app/                    # Laravel application code
 │   ├── Http/Controllers/   # Inertia controllers
 │   ├── Jobs/               # Queue jobs
+│   ├── Mcp/                # MCP server, resources, tools, prompts
 │   ├── Models/             # Eloquent models
-│   └── Services/           # AI gateway service
+│   └── Services/           # TransactionSanitizer, WestpacCsvParser
 ├── resources/js/           # React frontend
 │   ├── Pages/              # Inertia page components
 │   └── Components/         # Reusable components
+├── routes/ai.php           # MCP server registration
 ├── database/migrations/    # Database migrations
 ├── tests/                  # Test suites
 ├── docker/                 # Docker configuration
@@ -122,9 +126,21 @@ make analyse         # Static analysis only
 
 See `.env.example` for all required variables. Key settings:
 
-- `AI_GATEWAY_URL` — URL of the AI gateway on your LAN
-- `AI_GATEWAY_API_KEY` — Shared secret for API authentication
 - `DB_*` — MySQL connection (defaults work with Docker)
+- `APP_KEY` — also encrypts the PII replacement map and seeds pseudonym hashing
+
+## Connecting Claude (MCP)
+
+The app exposes a local MCP server at `/mcp/finance` (LAN only, no public exposure).
+
+1. Mint a Sanctum token: `docker compose exec app php artisan tinker` →
+   `$user->createToken('claude')->plainTextToken`
+2. Point your Claude client at `http://<host>:8080/mcp/finance` with header
+   `Authorization: Bearer <token>`.
+3. Ask Claude to run the `analyze_spending` prompt or categorize uncovered transactions.
+
+Inspect/debug locally with `docker compose exec app php artisan mcp:inspector finance`.
+Manage the PII replacement map, sanitization mode, and egress audit on the **Privacy & MCP** page.
 
 ## CI/CD
 

@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Jobs\CategorizeTransactions;
 use App\Models\Transaction;
 use App\Models\User;
-use Illuminate\Support\Facades\Queue;
 
 it('stores a new transaction', function (): void {
     $user = User::factory()->create();
@@ -35,30 +33,15 @@ it('validates required transaction fields', function (): void {
         ->assertSessionHasErrors(['date', 'description', 'amount', 'account']);
 });
 
-it('dispatches categorize job for uncategorized transactions', function (): void {
-    Queue::fake([CategorizeTransactions::class]);
+it('updates a transaction category and locks it', function (): void {
     $user = User::factory()->create();
-
-    Transaction::factory()->count(3)->create(['category' => null]);
+    $transaction = Transaction::factory()->create(['category' => null, 'category_locked' => false]);
 
     $this->actingAs($user)
-        ->post('/transactions/categorize')
+        ->patch("/transactions/{$transaction->id}/category", ['category' => 'Groceries'])
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    Queue::assertPushed(CategorizeTransactions::class);
-});
-
-it('returns info when no uncategorized transactions exist', function (): void {
-    Queue::fake([CategorizeTransactions::class]);
-    $user = User::factory()->create();
-
-    Transaction::factory()->count(2)->create(['category' => 'Groceries']);
-
-    $this->actingAs($user)
-        ->post('/transactions/categorize')
-        ->assertRedirect()
-        ->assertSessionHas('info');
-
-    Queue::assertNotPushed(CategorizeTransactions::class);
+    expect($transaction->fresh()->category)->toBe('Groceries');
+    expect($transaction->fresh()->category_locked)->toBeTrue();
 });

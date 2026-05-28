@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -12,6 +13,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    /** Sentinel filter value selecting transactions with no category. */
+    private const string UNCATEGORIZED = '__uncategorized__';
+
     public function index(Request $request): Response
     {
         $range = $request->query('range', 'this_month');
@@ -29,7 +33,8 @@ class DashboardController extends Controller
             is_string($to) ? $to : null,
         );
 
-        $spendingByCategory = Transaction::where('date', '>=', $startDate)
+        $spendingByCategory = Transaction::excludingTransfers()
+            ->where('date', '>=', $startDate)
             ->where('date', '<=', $endDate)
             ->where('amount', '<', 0)
             ->whereNotNull('category')
@@ -38,31 +43,64 @@ class DashboardController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        $monthlyTrends = Transaction::selectRaw("DATE_FORMAT(date, '%Y-%m') as month")
-            ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income')
-            ->selectRaw('SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses')
-            ->where('date', '>=', $startDate)
-            ->where('date', '<=', $endDate)
-            ->groupByRaw("DATE_FORMAT(date, '%Y-%m')")
-            ->orderBy('month')
-            ->get();
+        $trend = $request->query('trend', 'month');
+        $trend = in_array($trend, ['day', 'week', 'month', 'period'], true) ? $trend : 'month';
+
+        $incomeExpr = 'SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income';
+        $expenseExpr = 'SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses';
+
+        // Bucket label for the income-vs-expense trend at the requested granularity.
+        $labelExpr = match ($trend) {
+            'day' => "DATE_FORMAT(date, '%Y-%m-%d')",
+            'week' => "DATE_FORMAT(date, '%x-W%v')",
+            default => "DATE_FORMAT(date, '%Y-%m')",
+        };
+
+        $monthlyTrends = $trend === 'period'
+            ? Transaction::excludingTransfers()
+                ->selectRaw("'Entire period' as month")
+                ->selectRaw($incomeExpr)
+                ->selectRaw($expenseExpr)
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $endDate)
+                ->get()
+            : Transaction::excludingTransfers()
+                ->selectRaw($labelExpr.' as month')
+                ->selectRaw($incomeExpr)
+                ->selectRaw($expenseExpr)
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $endDate)
+                ->groupByRaw($labelExpr)
+                ->orderByRaw($labelExpr)
+                ->get();
+
+        $category = $request->query('category');
+        $category = is_string($category) && $category !== '' ? $category : null;
 
         $transactions = Transaction::where('date', '>=', $startDate)
             ->where('date', '<=', $endDate)
+            ->when($category === self::UNCATEGORIZED, fn ($query) => $query->whereNull('category'))
+            ->when(
+                $category !== null && $category !== self::UNCATEGORIZED,
+                fn ($query) => $query->where('category', $category),
+            )
             ->orderByDesc('date')
             ->orderByDesc('id')
-            ->paginate(20)
+            ->paginate(100)
             ->withQueryString();
 
         return Inertia::render('Dashboard', [
             'spendingByCategory' => $spendingByCategory,
             'monthlyTrends' => $monthlyTrends,
             'recentTransactions' => $transactions,
+            'categories' => Category::orderBy('name')->pluck('name'),
             'currentPeriod' => $periodLabel,
             'filters' => [
                 'range' => $range,
                 'from' => $startDate->format('Y-m-d'),
                 'to' => $endDate->format('Y-m-d'),
+                'trend' => $trend,
+                'category' => $category,
             ],
         ]);
     }
