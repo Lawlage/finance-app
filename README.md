@@ -61,11 +61,12 @@ Visit http://localhost:8080 to access the app.
 
 ## Docker Services
 
-| Service | Description              | Port       |
-|---------|--------------------------|------------|
-| app     | PHP-FPM + Node.js        | 5173 (HMR) |
-| nginx   | Web server               | 8080       |
-| mysql   | MySQL 8 database         | Internal   |
+| Service | Description                        | Port       |
+|---------|------------------------------------|------------|
+| app     | PHP-FPM + Node.js                  | 5173 (HMR) |
+| queue   | Queue worker (`php artisan queue:work`) | Internal   |
+| nginx   | Web server                         | 8080       |
+| mysql   | MySQL 8 database                   | Internal   |
 
 ## Development Commands
 
