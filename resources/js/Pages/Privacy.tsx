@@ -86,11 +86,12 @@ export default function Privacy({
                     Point your local Claude client (Claude Desktop / Code) at
                     the finance MCP server. Authenticate with a Sanctum personal
                     access token — the server is LAN-only and never exposed
-                    publicly.
+                    publicly. The app runs in Docker, so run these from the
+                    project directory on the host.
                 </p>
-                <dl className="space-y-2 text-sm">
-                    <div className="flex gap-2">
-                        <dt className="w-28 font-medium text-gray-700">
+                <dl className="space-y-3 text-sm">
+                    <div>
+                        <dt className="mb-1 font-medium text-gray-700">
                             Endpoint
                         </dt>
                         <dd>
@@ -99,20 +100,27 @@ export default function Privacy({
                             </code>
                         </dd>
                     </div>
-                    <div className="flex gap-2">
-                        <dt className="w-28 font-medium text-gray-700">Auth</dt>
-                        <dd className="text-gray-600">
-                            Header{' '}
-                            <code className="rounded bg-gray-100 px-2 py-0.5">
-                                Authorization: Bearer &lt;token&gt;
+                    <div>
+                        <dt className="mb-1 font-medium text-gray-700">
+                            1. Generate a Sanctum token
+                        </dt>
+                        <dd>
+                            <code className="block overflow-x-auto rounded bg-gray-100 px-2 py-1 whitespace-pre text-gray-800">
+                                docker compose exec app php artisan tinker
+                                --execute=&quot;echo
+                                App\Models\User::first()-&gt;createToken(&apos;claude&apos;)-&gt;plainTextToken;&quot;
                             </code>
-                            . Generate one with{' '}
-                            <code className="rounded bg-gray-100 px-2 py-0.5">
-                                php artisan tinker
-                            </code>
-                            :{' '}
-                            <code className="rounded bg-gray-100 px-2 py-0.5">
-                                $user-&gt;createToken(&apos;claude&apos;)-&gt;plainTextToken
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="mb-1 font-medium text-gray-700">
+                            2. Register the server with Claude Code
+                        </dt>
+                        <dd>
+                            <code className="block overflow-x-auto rounded bg-gray-100 px-2 py-1 whitespace-pre text-gray-800">
+                                claude mcp add --transport http finance{' '}
+                                {mcpEndpoint} --header &quot;Authorization:
+                                Bearer &lt;token&gt;&quot;
                             </code>
                         </dd>
                     </div>

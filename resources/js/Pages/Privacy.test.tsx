@@ -84,7 +84,18 @@ describe('Privacy', () => {
         expect(
             screen.getByRole('heading', { name: 'Privacy & MCP' }),
         ).toBeInTheDocument()
-        expect(screen.getByText(/\/mcp\/finance/)).toBeInTheDocument()
+        expect(screen.getAllByText(/\/mcp\/finance/).length).toBeGreaterThan(0)
+    })
+
+    it('shows the Docker token and mcp-add commands', () => {
+        renderComponent(<Privacy {...props} />)
+
+        expect(
+            screen.getByText(/docker compose exec app php artisan tinker/),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByText(/claude mcp add --transport http finance/),
+        ).toBeInTheDocument()
     })
 
     it('reflects the current fallback mode', () => {
