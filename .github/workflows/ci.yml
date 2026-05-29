@@ -93,7 +93,7 @@ jobs:
       - name: Configure environment
         run: |
           cp .env.example .env
-          sed -i 's/^APP_KEY=$/APP_KEY=base64:MRj5BX5Xqujt7Ty6aPvoeOjxOQcyATuKAanpcEqgxEE=/' .env
+          sed -i "s|^APP_KEY=\$|APP_KEY=base64:$(openssl rand -base64 32)|" .env
       - run: docker compose up -d --build
       - name: Fix permissions and install dependencies
         run: |
